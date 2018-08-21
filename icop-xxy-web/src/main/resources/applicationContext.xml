@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:context="http://www.springframework.org/schema/context" xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:tx="http://www.springframework.org/schema/tx" xmlns:jpa="http://www.springframework.org/schema/data/jpa"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.0.xsd
+		http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-4.0.xsd
+		http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-4.0.xsd
+		http://www.springframework.org/schema/data/jpa http://www.springframework.org/schema/data/jpa/spring-jpa-1.3.xsd
+		http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-4.0.xsd"
+	default-lazy-init="false">
+	<description>Spring公共配置</description>
+
+	<!-- 将多个配置文件读取到容器中，交给Spring管理 -->
+	<bean id="propertyConfigurer" class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+		<property name="locations">
+			<list>
+				<value>classpath*:application.properties</value>
+			</list>
+		</property>
+	</bean>
+
+	<!-- 使用annotation 自动注册bean, 并保证@Required、@Autowired的属性被注入 -->
+	<context:component-scan
+		base-package="com.yyjz.icop,com.yonyou">
+		<context:exclude-filter type="annotation" expression="org.springframework.stereotype.Controller" />
+		<context:exclude-filter type="annotation" expression="org.springframework.web.bind.annotation.ControllerAdvice" />
+	</context:component-scan>
+
+	<bean id="dealerStatFilter" class="com.alibaba.druid.filter.stat.StatFilter">
+		<property name="slowSqlMillis" value="1000" />
+		<property name="logSlowSql" value="true" />
+		<property name="mergeSql" value="true" />
+	</bean>
+	<bean id="dealerWallFilter" class="com.alibaba.druid.wall.WallFilter">
+		<property name="logViolation" value="true" />
+		<property name="throwException" value="false" />
+	</bean>
+	<bean id="dataSource" class="com.alibaba.druid.pool.DruidDataSource" destroy-method="close">
+		<property name="driverClassName" value="${jdbc.driver}" />
+		<property name="url" value="${jdbc.url}" />
+		<property name="username" value="${jdbc.username}" />
+		<property name="password" value="${jdbc.password}" />
+		<property name="defaultAutoCommit" value="false" />
+		<property name="maxActive" value="${jdbc.pool.maxActive}" />
+		<property name="minIdle" value="0" />
+		<property name="initialSize" value="5" />
+		<property name="maxWait" value="${jdbc.pool.maxWait}" />
+		<property name="validationQuery" value="SELECT 'x'" />
+		<property name="testWhileIdle" value="true" />
+		<property name="testOnBorrow" value="false" />
+		<property name="testOnReturn" value="false" />
+		<property name="removeAbandoned" value="${jdbc.pool.removeAbandoned}" />
+		<property name="removeAbandonedTimeout" value="${jdbc.pool.removeAbandonedTimeout}" />
+		<property name="minEvictableIdleTimeMillis" value="${jdbc.pool.minEvictableIdleTimeMillis}" />
+		<property name="timeBetweenEvictionRunsMillis" value="1800000" />
+		<property name="proxyFilters">
+			<list>
+				<ref bean="dealerStatFilter" />
+				<ref bean="dealerWallFilter" />
+			</list>
+		</property>
+	</bean>
+
+
+	<!-- Jpa Entity Manager 配置 -->
+	<bean id="entityManagerFactory" class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
+		<property name="dataSource" ref="dataSource" />
+		<property name="jpaVendorAdapter" ref="hibernateJpaVendorAdapter" />
+		<property name="packagesToScan">
+			<array>
+				<value>com.yyjz</value>
+				<value>com.yycc</value>
+				<value>uap.web.api.entity</value>
+				<value>com.yonyou.uap.billcode.entity</value>
+				<value>com.yonyou.uap.ieop</value>
+			</array>
+		</property>
+		<property name="jpaProperties">
+			<props>
+				<!-- 命名规则 My_NAME->MyName -->
+				<prop key="hibernate.ejb.naming_strategy">org.hibernate.cfg.ImprovedNamingStrategy</prop>
+
+				<!-- hibernate二级缓存 -->
+				<prop key="hibernate.show_sql">true</prop>
+				<prop key="hibernate.cache.region.factory_class">org.hibernate.cache.ehcache.EhCacheRegionFactory</prop>
+				<prop key="javax.persistence.sharedCache.mode">ENABLE_SELECTIVE</prop>
+				<prop key="hibernate.generate_statistics">false</prop>
+				<prop key="hibernate.cache.use_second_level_cache">false</prop>
+				<prop key="hibernate.cache.use_query_cache">false</prop>
+				<prop key="hibernate.cache.provider_configuration">classpath:ehcache/ehcache.xml</prop>
+				<prop key="hibernate.hbm2ddl.auto">none</prop>
+				 <!-- 拦截器 -->
+                <prop key="hibernate.ejb.interceptor">com.yyjz.icop.refer.interceptor.ReferInterceptor</prop>
+			</props>
+		</property>
+	</bean>
+
+	<bean id="hibernateJpaVendorAdapter" class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter">
+		<property name="databasePlatform">
+			<bean factory-method="getDialect" class="org.springside.modules.persistence.Hibernates">
+				<constructor-arg ref="dataSource" />
+			</bean>
+		</property>
+	</bean>
+
+	<!-- Spring Data Jpa配置 -->
+	<jpa:repositories base-package="com.yyjz,com.yycc,uap.web.ecmgr.repository,com.yonyou.uap.billcode.repository,com.yonyou.uap.ieop"
+		transaction-manager-ref="transactionManager" entity-manager-factory-ref="entityManagerFactory" />
+
+	<!-- Jpa 事务配置 -->
+	<bean id="transactionManager" class="org.springframework.orm.jpa.JpaTransactionManager">
+		<property name="entityManagerFactory" ref="entityManagerFactory" />
+	</bean>
+
+	<!-- 使用annotation定义事务 -->
+	<tx:annotation-driven transaction-manager="transactionManager" proxy-target-class="true" />
+
+	<!-- JSR303 Validator定义 -->
+	<bean id="validator" class="org.springframework.validation.beanvalidation.LocalValidatorFactoryBean" />
+
+
+	<!-- 索引更新服务 <bean id="solrIndexService" class="uap.web.search.solr.SolrIndexService"> <property name="solrServerUrl" value="${solr.index.url}"/> 
+		</bean> <bean id="solrIndexAspect" class="uap.web.aspect.SolrIndexAspect"> <property name="serviceMap"> <map> <entry key="solrGoodsService" 
+		value-ref="solrGoodsService"/> </map> </property> </bean> <bean id="accountAspect" class="uap.web.aspect.AccountAspect"> 
+		<property name="cacheManager" ref="cacheManager"/> <property name="accountService" ref="accountService"/> </bean> -->
+
+	<!-- 更新缓存服务 -->
+	<!-- 切入点 -->
+	<!-- <bean id="clearCacheService" class="uap.web.cache.service.ClearCacheService"></bean> <aop:config> <aop:aspect id="solraspect" 
+		ref="solrIndexAspect"> <aop:before method="process" pointcut="@annotation(solrIndex)"/> </aop:aspect> <aop:aspect id="cacheaspect" 
+		ref="clearCacheService"> <aop:after method="clearCache" pointcut="execution(* uap.web.ecmgr.service.emall.*Good*.*save*(..))"/> 
+		</aop:aspect> <aop:aspect id="accountAspect" ref="accountAspect"> <aop:around method="process" pointcut="@annotation(operType)"/> 
+		</aop:aspect> </aop:config> -->
+
+	<!-- 数据源配置,使用应用服务器的数据库连接池 -->
+	<!--<jee:jndi-lookup id="dataSource" jndi-name="java:comp/env/jdbc/ExampleDB"/> -->
+	<bean id="jdbcTemplateDao" class="com.yyjz.icop.database.repository.dao.JdbcTemplateDao">
+		<property name="dataSource" ref="dataSource"></property>
+	</bean>
+	<bean class="com.yyjz.icop.refer.context.ContextUtils"  lazy-init="false"/>
+	<bean class="com.yyjz.icop.cache.config.CacheConfig"/>
+	
+	<bean class="com.yyjz.icop.base.utils.ContextUtils"  />
+	<import resource="security-config.xml"/>
+</beans>
