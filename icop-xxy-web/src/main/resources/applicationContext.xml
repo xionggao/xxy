@@ -89,8 +89,8 @@
 				<prop key="hibernate.cache.use_query_cache">false</prop>
 				<prop key="hibernate.cache.provider_configuration">classpath:ehcache/ehcache.xml</prop>
 				<prop key="hibernate.hbm2ddl.auto">none</prop>
-				 <!-- 拦截器 -->
-                <prop key="hibernate.ejb.interceptor">com.yyjz.icop.refer.interceptor.ReferInterceptor</prop>
+				<!-- 拦截器 -->
+                <!-- <prop key="hibernate.ejb.interceptor">com.yyjz.icop.refer.interceptor.ReferInterceptor</prop> -->
 			</props>
 		</property>
 	</bean>
